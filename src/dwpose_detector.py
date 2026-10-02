@@ -85,10 +85,11 @@ class DWPoseDetector:
         self.models_dir = Path(models_dir)
 
         yolox_path = self.models_dir / "yolox_l.onnx"
-        dwpose_path = self.models_dir / "dw-ll_ucoco_384.onnx"
+        GITHUB_RELEASE_URL = "https://github.com/lovishgoyal145/motionextractor/releases/download/v1.0.0"
+        HUGGINGFACE_FALLBACK = "https://huggingface.co/yzd-v/DWPose/resolve/main"
 
-        if not yolox_path.exists() or not dwpose_path.exists():
-            raise FileNotFoundError(f"DWPose models not found in {self.models_dir}")
+        self._ensure_model(yolox_path, f"{GITHUB_RELEASE_URL}/yolox_l.onnx", f"{HUGGINGFACE_FALLBACK}/yolox_l.onnx")
+        self._ensure_model(dwpose_path, f"{GITHUB_RELEASE_URL}/dw-ll_ucoco_384.onnx", f"{HUGGINGFACE_FALLBACK}/dw-ll_ucoco_384.onnx")
 
         providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if use_gpu else ["CPUExecutionProvider"]
 
@@ -98,6 +99,24 @@ class DWPoseDetector:
 
         self.det_sess = ort.InferenceSession(str(yolox_path), sess_options=opts, providers=providers)
         self.pose_sess = ort.InferenceSession(str(dwpose_path), sess_options=opts, providers=providers)
+
+    @staticmethod
+    def _ensure_model(model_path: Path, primary_url: str, fallback_url: str):
+        """Ensures ONNX model exists locally, downloading automatically from GitHub Releases if missing."""
+        model_path = Path(model_path)
+        if model_path.exists() and model_path.stat().st_size > 1000:
+            return
+
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"Model weight '{model_path.name}' not found locally. Auto-downloading...")
+        print(f"Downloading from {primary_url}...")
+        import urllib.request
+        try:
+            urllib.request.urlretrieve(primary_url, str(model_path))
+        except Exception as e:
+            print(f"Primary download failed ({e}), trying fallback: {fallback_url}...")
+            urllib.request.urlretrieve(fallback_url, str(model_path))
+        print(f"Successfully downloaded {model_path.name} ({model_path.stat().st_size / (1024*1024):.1f} MB)!")
 
     def _decode_yolox(self, outputs: np.ndarray, img_size: Tuple[int, int] = (640, 640)) -> np.ndarray:
         """Decodes YOLOX anchor-free feature maps."""

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -e
+
+PROJECT_DIR="/home/lovish/.gemini/antigravity/scratch/motion_extraction"
+PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
+
+if [ $# -lt 1 ]; then
+    echo "=================================================="
+    echo "  moex1: Single-Character Motion Extraction CLI   "
+    echo "=================================================="
+    echo "Usage:"
+    echo "  moex1 <video_path> [options]"
+    echo ""
+    echo "Example:"
+    echo "  moex1 dance.mp4"
+    echo "  moex1 /path/to/clip.mp4 --archive-source"
+    echo ""
+    echo "Options:"
+    echo "  --archive-source    Copy source video to source/original.mp4"
+    echo "  --max-frames N      Process up to N frames"
+    echo "  --conf-thresh T     Detection threshold (default 0.30)"
+    echo "=================================================="
+    exit 1
+fi
+
+VIDEO_RAW="$1"
+shift
+
+# Resolve absolute path relative to current working directory
+if [ -e "$VIDEO_RAW" ]; then
+    VIDEO_PATH=$(realpath "$VIDEO_RAW")
+else
+    VIDEO_PATH="$VIDEO_RAW"
+fi
+
+exec "$PYTHON_BIN" "$PROJECT_DIR/run.py" SING "$VIDEO_PATH" --single "$@"
